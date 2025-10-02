@@ -9,6 +9,7 @@ class Type(IntEnum):
     SWP = auto()
     POP = auto()
     PUT = auto()
+    SET = auto()
     COMMENT = auto()
 
     ADD = auto()
@@ -21,6 +22,8 @@ class Type(IntEnum):
     FLOAT = auto()
     STRING = auto()
     BOOL = auto()
+    KEY = auto()
+    ID = auto()
 
     def __str__(self) -> str:
         return self.name
@@ -53,13 +56,6 @@ class Lexer:
         raise SyntaxError(f"{self.filename}:{self.lineno}:{self.col}: {message}")
 
     def __single_word(self, word: str, lineno: int, col: int) -> Token:
-        if re.match(r"^[+-]?[0-9]+$", word):
-            return Token(Type.INT, int(word), lineno, col)
-        elif re.match(r"^[+-]?[0-9]+\.[0-9]+$", word):
-            return Token(Type.FLOAT, float(word), lineno, col)
-        elif re.match(r"true|false", word):
-            return Token(Type.BOOL, word == "true", lineno, col)
-
         match word:
             case "dup":
                 return Token(Type.DUP, None, lineno, col)
@@ -67,6 +63,8 @@ class Lexer:
                 return Token(Type.SWP, None, lineno, col)
             case "put":
                 return Token(Type.PUT, None, lineno, col)
+            case "set":
+                return Token(Type.SET, None, lineno, col)
             case "+":
                 return Token(Type.ADD, None, lineno, col)
             case "-":
@@ -77,6 +75,17 @@ class Lexer:
                 return Token(Type.DIV, None, lineno, col)
             case "%":
                 return Token(Type.REM, None, lineno, col)
+
+        if re.match(r"^[+-]?[0-9]+$", word):
+            return Token(Type.INT, int(word), lineno, col)
+        elif re.match(r"^[+-]?[0-9]+\.[0-9]+$", word):
+            return Token(Type.FLOAT, float(word), lineno, col)
+        elif re.match(r"true|false", word):
+            return Token(Type.BOOL, word == "true", lineno, col)
+        elif re.match(r":[A-Za-z0-9_-]+", word):
+            return Token(Type.KEY, word, lineno, col)
+        elif re.match(r"[A-Za-z][A-Za-z0-9_-]+", word):
+            return Token(Type.ID, word, lineno, col)
 
         self.raise_error(f"Unknown word '{word}'")
 

@@ -1,4 +1,4 @@
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from lexer import Token, Type
 
@@ -8,6 +8,7 @@ class Runner:
         self.filename = filename
         self.tokens = tokens
         self.stack = []
+        self.variables: dict[str, Any] = {}
         self.lineno = 1
         self.col = 1
 
@@ -34,36 +35,64 @@ class Runner:
 
     def __put(self):
         if len(self.stack) == 0:
-            self.raise_error(f"(DUMP) stack is empty at this point")
+            self.raise_error(f"(PUT) stack is empty at this point")
         print(self.stack.pop())
+
+    def __set(self):
+        if len(self.stack) <= 1:
+            self.raise_error(
+                f"(SET) stack is empty or dont have enought arguments for this instruction"
+            )
+
+        id = self.stack.pop()
+        if id["type"] != Type.ID:
+            self.raise_error(f"(SET) can't assign value to '{id['value']}' of type '{id["type"]}'")
+
+        value = self.stack.pop()
+
+        self.variables[id["value"]] = value
 
     def __arithmetics(self, op_type: Type):
         if len(self.stack) <= 1:
-            self.raise_error(f"({op_type}) stack is empty at this point")
+            self.raise_error(
+                f"({op_type}) stack is empty or has only 1 element at this point"
+            )
 
         second = self.stack.pop()
-        if type(second) not in [int, float]:
+        if second[type] not in [Type.INT, Type.FLOAT]:
             self.raise_error(
-                f"({op_type}) Value '{second}' is not numeric (int or float)"
+                f"({op_type}) Value '{second['value']}' is not numeric (int or float)"
             )
 
         first = self.stack.pop()
-        if type(second) not in [int, float]:
+        if first["type"] not in [Type.INT, Type.FLOAT]:
             self.raise_error(
-                f"({op_type}) Value '{first}' is not numeric (int or float)"
+                f"({op_type}) Value '{first['value']}' is not numeric (int or float)"
             )
+
+        result_type = Type.FLOAT if first["type"] == Type.FLOAT else second["type"]
 
         match op_type:
             case Type.ADD:
-                self.stack.append(first + second)
+                self.stack.append(
+                    {"type": result_type, "value": first["value"] + second["value"]}
+                )
             case Type.SUB:
-                self.stack.append(first - second)
+                self.stack.append(
+                    {"type": result_type, "value": first["value"] - second["value"]}
+                )
             case Type.MUL:
-                self.stack.append(first * second)
+                self.stack.append(
+                    {"type": result_type, "value": first["value"] * second["value"]}
+                )
             case Type.DIV:
-                self.stack.append(first / second)
+                self.stack.append(
+                    {"type": result_type, "value": first["value"] / second["value"]}
+                )
             case Type.REM:
-                self.stack.append(first % second)
+                self.stack.append(
+                    {"type": result_type, "value": first["value"] % second["value"]}
+                )
 
     def run(self):
         token = self.__curr_token()
@@ -77,8 +106,14 @@ class Runner:
                     self.__swp()
                 case Type.PUT:
                     self.__put()
-                case Type.INT | Type.FLOAT | Type.STRING | Type.BOOL:
-                    self.stack.append(token.value)
+                case Type.SET:
+                    print("variables before:", self.variables)
+                    self.__set()
+                    print("variables after:", self.variables)
+                case (
+                    Type.INT | Type.FLOAT | Type.STRING | Type.BOOL | Type.ID | Type.KEY
+                ):
+                    self.stack.append({"type": token.type, "value": token.value})
                 case Type.ADD | Type.SUB | Type.MUL | Type.DIV | Type.REM:
                     self.__arithmetics(token.type)
             token = self.__curr_token()
