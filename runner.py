@@ -32,7 +32,7 @@ class Runner:
             )
         self.stack[-1], self.stack[-2] = self.stack[-2], self.stack[-1]
 
-    def __dump(self):
+    def __put(self):
         if len(self.stack) == 0:
             self.raise_error(f"(DUMP) stack is empty at this point")
         print(self.stack.pop())
@@ -75,8 +75,8 @@ class Runner:
                     self.__dup()
                 case Type.SWP:
                     self.__swp()
-                case Type.DUMP:
-                    self.__dump()
+                case Type.PUT:
+                    self.__put()
                 case Type.INT | Type.FLOAT | Type.STRING | Type.BOOL:
                     self.stack.append(token.value)
                 case Type.ADD | Type.SUB | Type.MUL | Type.DIV | Type.REM:
