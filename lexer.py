@@ -10,6 +10,7 @@ class Type(IntEnum):
     POP = auto()
     PUT = auto()
     SET = auto()
+    GET = auto()
     COMMENT = auto()
 
     ADD = auto()
@@ -26,6 +27,15 @@ class Type(IntEnum):
     ID = auto()
 
     def __str__(self) -> str:
+        if self.value in [
+            Type.DUP,
+            Type.SWP,
+            Type.POP,
+            Type.PUT,
+            Type.SET,
+            Type.GET,
+        ]:
+            return "BUILTIN"
         return self.name
 
 
@@ -65,6 +75,8 @@ class Lexer:
                 return Token(Type.PUT, None, lineno, col)
             case "set":
                 return Token(Type.SET, None, lineno, col)
+            case "get":
+                return Token(Type.GET, None, lineno, col)
             case "+":
                 return Token(Type.ADD, None, lineno, col)
             case "-":
