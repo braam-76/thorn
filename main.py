@@ -2,6 +2,7 @@ import sys
 
 import lexer
 import runner
+from environment import Environment
 
 
 def repl():
@@ -9,6 +10,7 @@ def repl():
     print("To exit, use '!exit'. To get help about REPL, use '!help'")
     prompt = "thorn > "
     src: list[str] = []
+    env = Environment()
     while True:
         expr = input(prompt)
         if expr == "!exit":
@@ -16,6 +18,8 @@ def repl():
             break
         elif expr == "!help":
             repl_help()
+        elif expr == "!flush-stack":
+            env.stack = []
         elif expr.endswith("\\"):
             prompt = ">> "
             src.append(expr[:-1])
@@ -26,7 +30,7 @@ def repl():
             try:
                 tokens = lexer.Lexer("<thorn-repl>", src).lex()
                 r = runner.Runner("<thorn-repl>", tokens)
-                r.run()
+                r.run(env)
             except Exception as e:
                 print(e)
 
@@ -35,8 +39,9 @@ def repl():
 
 def repl_help():
     print("REPL specific commands:")
-    print("    !exit:\t Exit the REPL")
-    print("    !help:\t Print this help message")
+    print("    !exit:\t\t Exit the REPL")
+    print("    !help:\t\t Print this help message")
+    print("    !flush-stack:\t Flushes/Cleans the stack")
 
 
 def main():
