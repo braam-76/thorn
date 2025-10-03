@@ -1,5 +1,6 @@
 import sys
 
+import environment
 import lexer
 import runner
 from environment import Environment
@@ -32,7 +33,9 @@ def repl():
                 r = runner.Runner("<thorn-repl>", tokens)
                 r.run(env)
             except Exception as e:
-                print(e)
+                print("stack:", env.stack)
+                print("variables:", env.variables)
+                print("error:", e)
 
         src = []
 
@@ -49,9 +52,15 @@ def main():
         repl()
 
     else:
-        with open(sys.argv[1], "r") as f:
-            l = lexer.Lexer(sys.argv[1], f.readlines())
-            print(l.lex())
+        try:
+            filename = sys.argv[1]
+            with open(filename, "r") as f:
+                env = environment.Environment()
+                tokens = lexer.Lexer(filename, f.readlines()).lex()
+                runner.Runner(filename, tokens).run(env)
+        except Exception as e:
+            print(e)
+            exit(1)
 
 
 if __name__ == "__main__":

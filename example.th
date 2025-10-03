@@ -1,0 +1,13 @@
+( This is comment. It can be only on one line. )
+
+( in Thorn we have for now only basic types, such as )
+( INT, FLOAT, BOOL and STRING )
+
+(string is text surrounded by double-brackets) 
+(notice than there is no spaces on begining and the end of comment)
+
+[Hello, world!] put (btw, this is "Hello, world!" in Thorn. 'put' ... puts string into output)
+
+( String can contain everything, even another pair of double-brackets )
+
+[ this string contains [ nested string ] ] put

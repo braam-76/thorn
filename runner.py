@@ -8,8 +8,45 @@ class Runner:
     def __init__(self, filename: str, tokens: list[Token]) -> None:
         self.filename = filename
         self.tokens = tokens
+        self.env: Environment
         self.lineno = 1
         self.col = 1
+
+    def run(self, env: Environment):
+        self.env = env
+        token = self.__curr_token()
+        while True:
+            match token.type:
+                case Type.EOF:
+                    return
+                case Type.DUP:
+                    self.__dup()
+                case Type.SWP:
+                    self.__swp()
+                case Type.PUT:
+                    self.__put()
+                case Type.SET:
+                    self.__set()
+                case Type.GET:
+                    self.__get()
+                case (
+                    Type.EQ
+                    | Type.NEQ
+                    | Type.GT
+                    | Type.GTE
+                    | Type.LT
+                    | Type.LTE
+                    | Type.OR
+                    | Type.AND
+                ):
+                    self.__conditionals(token.type)
+                case (
+                    Type.INT | Type.FLOAT | Type.STRING | Type.BOOL | Type.ID | Type.KEY
+                ):
+                    self.env.stack.append({"type": token.type, "value": token.value})
+                case Type.ADD | Type.SUB | Type.MUL | Type.DIV | Type.REM:
+                    self.__arithmetics(token.type)
+            token = self.__curr_token()
 
     def __curr_token(self) -> Token:
         token = self.tokens.pop(0)
@@ -35,7 +72,10 @@ class Runner:
     def __put(self):
         if len(self.env.stack) == 0:
             self.raise_error(f"(PUT) stack is empty at this point")
-        print(self.env.stack.pop()["value"])
+        val = self.env.stack.pop()
+        if val["type"] not in [Type.INT, Type.FLOAT, Type.STRING, Type.BOOL]:
+            self.raise_error(f"(PUT) cant print anything but primitive types")
+        print(val["value"])
 
     def __get(self):
         if len(self.env.stack) == 0:
@@ -76,7 +116,7 @@ class Runner:
             )
 
         second = self.env.stack.pop()
-        if second[type] not in [Type.INT, Type.FLOAT]:
+        if second["type"] not in [Type.INT, Type.FLOAT]:
             self.raise_error(
                 f"({op_type}) Value '{second['value']}' is not numeric (int or float)"
             )
@@ -111,27 +151,74 @@ class Runner:
                     {"type": result_type, "value": first["value"] % second["value"]}
                 )
 
-    def run(self, env: Environment):
-        self.env = env
-        token = self.__curr_token()
-        while True:
-            match token.type:
-                case Type.EOF:
-                    return
-                case Type.DUP:
-                    self.__dup()
-                case Type.SWP:
-                    self.__swp()
-                case Type.PUT:
-                    self.__put()
-                case Type.SET:
-                    self.__set()
-                case Type.GET:
-                    self.__get()
-                case (
-                    Type.INT | Type.FLOAT | Type.STRING | Type.BOOL | Type.ID | Type.KEY
-                ):
-                    self.env.stack.append({"type": token.type, "value": token.value})
-                case Type.ADD | Type.SUB | Type.MUL | Type.DIV | Type.REM:
-                    self.__arithmetics(token.type)
-            token = self.__curr_token()
+    def __conditionals(self, cond_type: Type):
+        if cond_type == Type.NEQ:
+            if len(self.env.stack) == 0:
+                self.raise_error(f"({cond_type}) stack is empty")
+
+            value = self.env.stack.pop()
+
+            if value["type"] != Type.BOOL:
+                self.raise_error(
+                    f"({cond_type}) cant use logical NOT ('!') on anything but boolean values (current value's type is '{value['type']}')"
+                )
+            value["value"] = not value["value"]
+            self.env.stack.append(value)
+
+        else:
+            if len(self.env.stack) <= 1:
+                self.raise_error(
+                    f"({cond_type}) stack is empty or has only 1 value at this point"
+                )
+
+            second = self.env.stack.pop()
+            if second["type"] not in [Type.STRING, Type.INT, Type.FLOAT, Type.BOOL]:
+                self.raise_error(
+                    f"({cond_type}) second value cannot be used for comparison, as it has type '{second['type']}'"
+                )
+
+            first = self.env.stack.pop()
+            if first["type"] not in [Type.STRING, Type.INT, Type.FLOAT, Type.BOOL]:
+                self.raise_error(
+                    f"({cond_type}) first value cannot be used for comparison, as it has type '{first['type']}'"
+                )
+
+            # Numeric comparisons require both types to be INT or FLOAT
+            if cond_type in [Type.GT, Type.GTE, Type.LT, Type.LTE]:
+                if first["type"] not in [Type.INT, Type.FLOAT] or second[
+                    "type"
+                ] not in [Type.INT, Type.FLOAT]:
+                    self.raise_error(
+                        f"({cond_type}) comparison requires numeric types (INT or FLOAT), got '{first['type']}' and '{second['type']}'"
+                    )
+
+            first_val = first["value"]
+            second_val = second["value"]
+
+            result = None
+            if cond_type == Type.EQ:
+                result = first_val == second_val
+            elif cond_type == Type.GT:
+                result = first_val > second_val
+            elif cond_type == Type.GTE:
+                result = first_val >= second_val
+            elif cond_type == Type.LT:
+                result = first_val < second_val
+            elif cond_type == Type.LTE:
+                result = first_val <= second_val
+            elif cond_type == Type.OR:
+                if first["type"] != Type.BOOL or second["type"] != Type.BOOL:
+                    self.raise_error(
+                        f"({cond_type}) OR operation requires boolean operands"
+                    )
+                result = first_val or second_val
+            elif cond_type == Type.AND:
+                if first["type"] != Type.BOOL or second["type"] != Type.BOOL:
+                    self.raise_error(
+                        f"({cond_type}) AND operation requires boolean operands"
+                    )
+                result = first_val and second_val
+            else:
+                self.raise_error(f"Unsupported conditional operation: {cond_type}")
+
+            self.env.stack.append({"type": Type.BOOL, "value": result})

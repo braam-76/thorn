@@ -13,6 +13,15 @@ class Type(IntEnum):
     GET = auto()
     COMMENT = auto()
 
+    EQ = auto()
+    NEQ = auto()
+    GT = auto()
+    GTE = auto()
+    LT = auto()
+    LTE = auto()
+    OR = auto()
+    AND = auto()
+
     ADD = auto()
     SUB = auto()
     MUL = auto()
@@ -28,15 +37,13 @@ class Type(IntEnum):
 
     def __str__(self) -> str:
         if self.value in [
-            Type.DUP,
-            Type.SWP,
-            Type.POP,
-            Type.PUT,
-            Type.SET,
-            Type.GET,
+            Type.STRING,
+            Type.FLOAT,
+            Type.INT,
+            Type.BOOL,
         ]:
-            return "BUILTIN"
-        return self.name
+            return self.name
+        return "BUILTIN"
 
 
 class Token:
@@ -67,6 +74,7 @@ class Lexer:
 
     def __single_word(self, word: str, lineno: int, col: int) -> Token:
         match word:
+            # hardenned functions
             case "dup":
                 return Token(Type.DUP, None, lineno, col)
             case "swp":
@@ -77,6 +85,26 @@ class Lexer:
                 return Token(Type.SET, None, lineno, col)
             case "get":
                 return Token(Type.GET, None, lineno, col)
+
+            # conditionals
+            case "=":
+                return Token(Type.EQ, None, lineno, col)
+            case "!":
+                return Token(Type.NEQ, None, lineno, col)
+            case ">":
+                return Token(Type.GT, None, lineno, col)
+            case ">=":
+                return Token(Type.GTE, None, lineno, col)
+            case "<":
+                return Token(Type.LT, None, lineno, col)
+            case "<=":
+                return Token(Type.LTE, None, lineno, col)
+            case "|":
+                return Token(Type.OR, None, lineno, col)
+            case "&":
+                return Token(Type.AND, None, lineno, col)
+
+            # arithmetics
             case "+":
                 return Token(Type.ADD, None, lineno, col)
             case "-":
@@ -101,6 +129,17 @@ class Lexer:
 
         self.raise_error(f"Unknown word '{word}'")
 
+    def __parse_nested(self, line: str, open: str, close: str) -> tuple[str, int]:
+        depth = 0
+        for i, ch in enumerate(line.strip()):
+            if ch == open:
+                depth += 1
+            elif ch == close:
+                depth -= 1
+                if depth == 0:
+                    return (line[1:i], i + 1)
+        return ("", -1)
+
     def lex(self) -> list[Token]:
         for line in self.src:
             self.col = 1
@@ -110,34 +149,28 @@ class Lexer:
                 if not line:
                     break
 
-                if line.startswith("[["):
-                    match = re.match(r"\[\[(.*?)\]\]", line)
-                    if match:
-                        string_content = match.group(1)
-                        length = match.end()
-                        self.tokens.append(
-                            Token(Type.STRING, string_content, self.lineno, self.col)
-                        )
-                        line = line[length:]
-                        self.col += length
-                    else:
-                        raise SyntaxError(
-                            f"{self.filename}:{self.lineno}:{self.col}: Unmatched [["
-                        )
-                elif line.startswith("("):
-                    match = re.match(r"\((.*?)\)", line)
-                    if match:
-                        string_content = match.group(1)
-                        length = match.end()
-                        self.tokens.append(
-                            Token(Type.COMMENT, string_content, self.lineno, self.col)
-                        )
-                        line = line[length:]
-                        self.col += length
-                    else:
-                        raise SyntaxError(
-                            f"{self.filename}:{self.lineno}:{self.col}: Unmatched [["
-                        )
+                print(line)
+
+                if line.startswith("["):
+                    string_content, length = self.__parse_nested(line, "[", "]")
+                    if length == -1:
+                        self.raise_error(f"Unmatched [")
+                    self.tokens.append(
+                        Token(Type.STRING, string_content, self.lineno, self.col)
+                    )
+                    line = line[length:]
+                    self.col += length
+                    continue
+                if line.startswith("("):
+                    comment, length = self.__parse_nested(line, "(", ")")
+                    if length == -1:
+                        self.raise_error(f"Unmatched (")
+                    self.tokens.append(
+                        Token(Type.COMMENT, comment, self.lineno, self.col)
+                    )
+                    line = line[length:]
+                    self.col += length
+                    continue
                 else:
                     m = re.match(r"(\S+)", line)
                     if m:
